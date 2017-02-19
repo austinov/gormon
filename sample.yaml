@@ -1,0 +1,15 @@
+interval: 2s # default 1 sec
+ssh-keys-dir: ~/.ssh # default or path to dir
+fields-out: f1,f2 # default ...
+fields-web: f2,f3 # ...
+hosts:
+  vds:
+    user: user1
+    addr: 192.168.1.13:22
+    keypath: id_rsa_1
+    cmd: redis-cli INFO # default
+  vbox:
+    user: user2
+    addr: 192.168.1.14:22
+    keypath: id_rsa_2
+    cmd: redis-cli -s /var/lib/backend/sockets/redis/backend-redis.socket INFO

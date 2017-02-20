@@ -2,22 +2,25 @@ package ssh
 
 import (
 	"bytes"
+	"strings"
 
+	"github.com/austinov/gormon/types"
 	"golang.org/x/crypto/ssh"
 )
 
 type Client interface {
+	Host() string
 	Connect() error
 	Run() (string, error)
 }
 
 type sshClient struct {
-	config    Config
+	config    types.HostConfig
 	sshConfig *ssh.ClientConfig
 	sshClient *ssh.Client
 }
 
-func New(cfg Config) Client {
+func New(cfg types.HostConfig) Client {
 	auths := make([]ssh.AuthMethod, 0)
 	auths = addKeyAuth(auths, cfg.Keypath)
 
@@ -29,6 +32,10 @@ func New(cfg Config) Client {
 		config:    cfg,
 		sshConfig: sshConfig,
 	}
+}
+
+func (c *sshClient) Host() string {
+	return strings.Split(c.config.Addr, ":")[0]
 }
 
 func (c *sshClient) Connect() error {

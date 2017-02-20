@@ -9,10 +9,9 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"os/user"
-	"strings"
 	"syscall"
 
+	"github.com/austinov/gormon/utils"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -24,7 +23,7 @@ func addKeyAuth(auths []ssh.AuthMethod, keypath string) []ssh.AuthMethod {
 		return auths
 	}
 
-	keypath = expandPath(keypath)
+	keypath = utils.ExpandPath(keypath)
 
 	// read the file
 	pemBytes, err := ioutil.ReadFile(keypath)
@@ -116,15 +115,4 @@ func parsePemBlock(block *pem.Block) (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("unsupported key type %q", block.Type)
 	}
-}
-
-func expandPath(path string) string {
-	if len(path) < 2 || path[:2] != "~/" {
-		return path
-	}
-	currUser, err := user.Current()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return strings.Replace(path, "~", currUser.HomeDir, 1)
 }

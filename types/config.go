@@ -12,10 +12,10 @@ import (
 )
 
 type Config struct {
-	Interval  time.Duration `mapstructure:"interval"`
-	Keydir    string        `mapstructure:"ssh-key-dir"`
-	FieldsOut []string      `mapstructure:"fields-out"`
-	//FieldsWeb    []string  `mapstructure:"fields-web"`
+	Interval     time.Duration         `mapstructure:"interval"`
+	Keydir       string                `mapstructure:"ssh-key-dir"`
+	FieldsOut    []string              `mapstructure:"fields-out"`
+	ChangeFactor int                   `mapstructure:"change-factor"`
 	Hosts        map[string]HostConfig `mapstructure:"hosts"`
 	fieldsOutMap map[string]struct{}
 }
@@ -42,7 +42,7 @@ func (c *Config) init() {
 		// default stat fields
 		c.FieldsOut = []string{
 			"host",
-			"uptime_in_seconds",
+			"tstamp",
 			"used_memory",
 			"used_memory_rss",
 			"connected_clients",
@@ -59,8 +59,22 @@ func (c *Config) init() {
 		}
 	}
 	c.fieldsOutMap = make(map[string]struct{})
+	var host, tstamp bool
 	for _, f := range c.FieldsOut {
+		if f == "host" {
+			host = true
+		} else if f == "tstamp" {
+			tstamp = true
+		}
 		c.fieldsOutMap[f] = struct{}{}
+	}
+	if !tstamp {
+		c.FieldsOut = append([]string{"tstamp"}, c.FieldsOut...)
+		c.fieldsOutMap["tstamp"] = struct{}{}
+	}
+	if !host {
+		c.FieldsOut = append([]string{"host"}, c.FieldsOut...)
+		c.fieldsOutMap["host"] = struct{}{}
 	}
 }
 

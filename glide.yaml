@@ -1,0 +1,8 @@
+package: github.com/austinov/gormon
+import:
+- package: github.com/spf13/viper
+- package: golang.org/x/crypto
+  subpackages:
+  - ssh
+  - ssh/terminal
+- package: github.com/dustin/go-humanize

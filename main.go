@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/austinov/gormon/ssh"
 	"github.com/austinov/gormon/types"
+	"github.com/dustin/go-humanize"
 )
 
 func main() {
@@ -45,11 +47,15 @@ func main() {
 }
 
 type monitor struct {
-	cfg types.Config
+	cfg  types.Config
+	prev map[string]map[string]string
 }
 
 func NewMon(cfg types.Config) *monitor {
-	m := &monitor{cfg}
+	m := &monitor{
+		cfg:  cfg,
+		prev: make(map[string]map[string]string),
+	}
 	m.header()
 	return m
 }
@@ -70,8 +76,9 @@ func (m *monitor) header() {
 func (m *monitor) Process(host, output string) {
 	stats := make(map[string]string)
 	stats["host"] = host
+	stats["tstamp"] = time.Now().Format("2006-01-02 15:04:05.999")
 
-	lines := strings.Split(output, "\n")
+	lines := strings.Split(output, "\r\n")
 	for _, l := range lines {
 		if l == "" || l[:1] == "#" {
 			continue
@@ -87,19 +94,116 @@ func (m *monitor) Process(host, output string) {
 
 func (m *monitor) printStat(stats map[string]string) {
 	out := ""
-	clear := func(s string) string {
-		if strings.HasSuffix(s, "\r") {
-			return s[:len(s)-1]
-		}
-		return s
-	}
+	prev := m.prev[stats["host"]]
 	for _, f := range m.cfg.FieldsOut {
-		data := clear(stats[f])
+		data := stats[f]
+		if f != "host" && f != "tstamp" && prev != nil {
+			data = m.format(f, data, prev)
+		}
 		if out == "" {
 			out = data
 		} else {
 			out += sep + data
 		}
 	}
-	fmt.Println(out)
+	if out != "" {
+		fmt.Println(out)
+	}
+	m.prev[stats["host"]] = stats
+}
+
+func (m *monitor) format(field, value string, prev map[string]string) string {
+	parseInts := func() (data, delta int64, factor int) {
+		var err error
+		if data, err = strconv.ParseInt(value, 10, 64); err == nil {
+			prevData := prev[field]
+			if pv, err := strconv.ParseInt(prevData, 10, 64); err == nil && pv != 0 {
+				delta = data - pv
+				factor = int((delta * 100) / pv)
+				if factor < 0 {
+					factor = -factor
+				}
+			}
+		}
+		return data, delta, factor
+	}
+	parseFloats := func() (data, delta float64, factor int) {
+		var err error
+		if data, err = strconv.ParseFloat(value, 64); err == nil {
+			prevData := prev[field]
+			if pv, err := strconv.ParseFloat(prevData, 64); err == nil {
+				delta := data - pv
+				factor := int((delta * 100) / pv)
+				if factor < 0 {
+					factor = -factor
+				}
+			}
+		}
+		return data, delta, factor
+	}
+	switch field {
+	case "connected_clients",
+		"client_longest_output_list",
+		"client_biggest_input_buf",
+		"blocked_clients",
+		"loading",
+		"rdb_changes_since_last_save",
+		"rdb_bgsave_in_progress",
+		"rdb_last_save_time",
+		"rdb_last_bgsave_status",
+		"rdb_last_bgsave_time_sec",
+		"rdb_current_bgsave_time_sec",
+		"aof_enabled",
+		"aof_rewrite_in_progress",
+		"aof_rewrite_scheduled",
+		"aof_last_rewrite_time_sec",
+		"aof_current_rewrite_time_sec",
+		"total_connections_received",
+		"total_commands_processed",
+		"instantaneous_ops_per_sec",
+		"total_net_input_bytes",
+		"total_net_output_bytes",
+		"rejected_connections",
+		"sync_full",
+		"sync_partial_ok",
+		"sync_partial_err",
+		"expired_keys",
+		"evicted_keys",
+		"keyspace_hits",
+		"keyspace_misses",
+		"pubsub_channels",
+		"pubsub_patterns",
+		"latest_fork_usec",
+		"migrate_cached_sockets",
+		"connected_slaves",
+		"master_repl_offset",
+		"repl_backlog_active",
+		"repl_backlog_size",
+		"repl_backlog_first_byte_offset",
+		"repl_backlog_histlen",
+		"cluster_enabled":
+		if _, delta, factor := parseInts(); factor > m.cfg.ChangeFactor {
+			value += fmt.Sprintf(" (%d)", delta)
+		}
+	case "used_memory",
+		"used_memory_rss",
+		"used_memory_peak",
+		"used_memory_lua":
+		if data, delta, factor := parseInts(); factor > m.cfg.ChangeFactor {
+			value = fmt.Sprintf("%s (%s)", humanize.Bytes(uint64(data)), humanize.Bytes(uint64(delta)))
+		} else {
+			value = fmt.Sprintf("%s", humanize.Bytes(uint64(data)))
+		}
+	case "mem_fragmentation_ratio",
+		"instantaneous_input_kbps",
+		"instantaneous_output_kbps",
+		"used_cpu_sys",
+		"used_cpu_user",
+		"used_cpu_sys_children",
+		"used_cpu_user_children":
+		if _, delta, factor := parseFloats(); factor > m.cfg.ChangeFactor {
+			value += fmt.Sprintf(" (%f)", delta)
+		}
+	}
+	return value
 }

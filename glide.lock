@@ -1,8 +1,6 @@
-hash: db38108146ecd7dca1448e271f1caf709f73f5d3dc2a1d0f90590bc7da11c271
-updated: 2017-02-25T01:21:40.63914926+03:00
+hash: d3893f4457cac5377dbcafb02f8591ac84176bba705bf73a18dfc766f2a0e876
+updated: 2017-02-25T16:48:30.035657991+03:00
 imports:
-- name: github.com/dustin/go-humanize
-  version: 7a41df006ff9af79a29f0ffa9c5f21fbe6314a2d
 - name: github.com/fsnotify/fsnotify
   version: 629574ca2a5df945712d3079857300b5e4da0236
 - name: github.com/hashicorp/hcl

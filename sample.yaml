@@ -1,15 +1,39 @@
-interval: 2s # default 1 sec
-ssh-keys-dir: ~/.ssh # default or path to dir
-fields-out: f1,f2 # default ...
-fields-web: f2,f3 # ...
+# it is the interval between statistics gathering (default 2 sec)
+interval: 2s
+
+# output format:
+#   csv   - stats will be printed as a comma separated values 
+#   csv+  - same as csv, plus will be printed change of the value (default)
+#   csv++ - stats will be printed only if there are changes more than change-factor
+out-format: csv+ 
+
+# the value delimiter in output
+fields-separator: |
+
+# the memory values will be printed in human-readable format
+human-readable: true
+
+# array of fields to print
+# in the case of an empty array will be printed default fields list.
+fields-out:
+    #- used_memory
+
+# this value is in percent, empty for print any changes
+change-factor:
+
+# it is the path to the directory containing the RSA-keys (default is ~/.ssh)
+ssh-key-dir: ~/.ssh
+
 hosts:
   vds:
     user: user1
     addr: 192.168.1.13:22
+    # it can be absolute path or just filename in ssh-key-dir directory
     keypath: id_rsa_1
     cmd: redis-cli INFO # default
   vbox:
     user: user2
     addr: 192.168.1.14:22
+    # it can be absolute path or just filename in ssh-key-dir directory
     keypath: id_rsa_2
     cmd: redis-cli -s /var/lib/backend/sockets/redis/backend-redis.socket INFO

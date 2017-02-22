@@ -5,4 +5,3 @@ import:
   subpackages:
   - ssh
   - ssh/terminal
-- package: github.com/dustin/go-humanize

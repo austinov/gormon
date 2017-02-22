@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"strings"
 
-	"github.com/austinov/gormon/types"
+	c "github.com/austinov/gormon/config"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -15,12 +15,12 @@ type Client interface {
 }
 
 type sshClient struct {
-	config    types.HostConfig
+	config    c.HostConfig
 	sshConfig *ssh.ClientConfig
 	sshClient *ssh.Client
 }
 
-func New(cfg types.HostConfig) Client {
+func New(cfg c.HostConfig) Client {
 	auths := make([]ssh.AuthMethod, 0)
 	auths = addKeyAuth(auths, cfg.Keypath)
 

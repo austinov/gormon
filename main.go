@@ -3,7 +3,9 @@ package main
 import (
 	"log"
 	"os"
-	"time"
+	"os/signal"
+	"sync"
+	"syscall"
 
 	c "github.com/austinov/gormon/config"
 	"github.com/austinov/gormon/monitor/csv"
@@ -17,28 +19,33 @@ func main() {
 	cfg := c.GetConfig()
 	log.Printf("%#v\n", cfg)
 
-	clients := make([]ssh.Client, 0, len(cfg.Hosts))
+	var wg sync.WaitGroup
+	mon := csv.New(cfg)
+
+	collectors := make([]ssh.Collector, 0, len(cfg.Hosts))
 	for _, hostConfig := range cfg.Hosts {
-		clients = append(clients, ssh.New(hostConfig))
+		client := ssh.NewClient(hostConfig)
+		collector := ssh.NewCollector(cfg, client, mon)
+		collectors = append(collectors, collector)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			collector.Start()
+		}()
 	}
 
-	ticker := time.Tick(2 * time.Second)
-
-	m := csv.New(cfg)
-	for {
-		select {
-		case <-ticker:
-			for _, client := range clients {
-				if err := client.Connect(); err != nil {
-					m.Process(client.Host(), "error:"+err.Error())
-					continue
-				}
-				if out, err := client.Run(); err != nil {
-					m.Process(client.Host(), "error:"+err.Error())
-				} else {
-					m.Process(client.Host(), out)
-				}
-			}
+	// handle stop signals
+	interrupt := make(chan os.Signal, 1)
+	defer close(interrupt)
+	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-interrupt
+		for _, collector := range collectors {
+			collector.Stop()
 		}
-	}
+		signal.Stop(interrupt)
+	}()
+
+	wg.Wait()
 }

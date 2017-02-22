@@ -11,6 +11,7 @@ import (
 type Client interface {
 	Host() string
 	Connect() error
+	Disconnect() error
 	Run() (string, error)
 }
 
@@ -20,7 +21,7 @@ type sshClient struct {
 	sshClient *ssh.Client
 }
 
-func New(cfg c.HostConfig) Client {
+func NewClient(cfg c.HostConfig) Client {
 	auths := make([]ssh.AuthMethod, 0)
 	auths = addKeyAuth(auths, cfg.Keypath)
 
@@ -42,6 +43,13 @@ func (c *sshClient) Connect() error {
 	var err error
 	c.sshClient, err = ssh.Dial("tcp", c.config.Addr, c.sshConfig)
 	return err
+}
+
+func (c *sshClient) Disconnect() error {
+	if c.sshClient != nil {
+		return c.sshClient.Close()
+	}
+	return nil
 }
 
 func (c *sshClient) Run() (string, error) {

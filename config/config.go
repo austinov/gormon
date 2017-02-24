@@ -1,6 +1,8 @@
 package config
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -21,6 +23,7 @@ type Config struct {
 	FieldsOut       []string              `mapstructure:"fields-out"`
 	ChangeFactor    float32               `mapstructure:"change-factor"`
 	Hosts           map[string]HostConfig `mapstructure:"hosts"`
+	Debug           bool
 	fieldsOutMap    map[string]struct{}
 	forHuman        bool
 }
@@ -33,6 +36,18 @@ type HostConfig struct {
 }
 
 func (c *Config) init() {
+	var debug bool
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage:\n\n")
+		fmt.Fprintf(os.Stderr, "  %s [flags]\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Flags:\n")
+		flag.PrintDefaults()
+	}
+	flag.BoolVar(&debug, "debug", false, "debug mode")
+	flag.Parse()
+
+	c.Debug = debug
+
 	formats := map[string]struct{}{
 		"csv":   struct{}{},
 		"csv+":  struct{}{},
@@ -71,8 +86,6 @@ func (c *Config) init() {
 			"used_memory_rss",
 			"connected_clients",
 			"blocked_clients",
-			"total_connections_received",
-			"total_commands_processed",
 			"rejected_connections",
 			"keyspace_hits",
 			"keyspace_misses",
@@ -143,6 +156,9 @@ func GetConfig() Config {
 			log.Fatal(err)
 		}
 		cfg.init()
+		if cfg.Debug {
+			log.Printf("config: %#v", cfg)
+		}
 	})
 	return cfg
 }

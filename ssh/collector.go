@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"math/rand"
 	"time"
 
 	c "github.com/austinov/gormon/config"
@@ -30,7 +31,9 @@ func NewCollector(cfg c.Config, client Client, mon m.Monitor) Collector {
 }
 
 func (c *collector) Start() {
-	ticker := time.Tick(c.cfg.Interval)
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	normal := time.Duration(rnd.NormFloat64() * float64(time.Millisecond))
+	ticker := time.Tick(c.cfg.Interval + normal)
 	for {
 		select {
 		case <-ticker:

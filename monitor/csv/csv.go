@@ -2,8 +2,10 @@ package csv
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	c "github.com/austinov/gormon/config"
@@ -13,52 +15,82 @@ import (
 
 type monitor struct {
 	cfg  c.Config
+	ch   chan hostOutput
+	done chan struct{}
+
+	mu   sync.Mutex
 	prev map[string]map[string]string
+}
+
+type hostOutput struct {
+	host   string
+	output string
 }
 
 func New(cfg c.Config) m.Monitor {
 	m := &monitor{
 		cfg:  cfg,
+		ch:   make(chan hostOutput, len(cfg.Hosts)),
+		done: make(chan struct{}, 1),
 		prev: make(map[string]map[string]string),
 	}
-	m.header()
+	m.printHeader()
+	go m.handleStats()
 	return m
 }
 
-func (m *monitor) Process(host, output string) {
-	stats := make(map[string]string)
-	stats["host"] = host
-	stats["tstamp"] = time.Now().Format("2006-01-02 15:04:05.999")
-
-	lines := strings.Split(output, "\r\n")
-	for _, l := range lines {
-		if l == "" || l[:1] == "#" {
-			continue
-		} else {
-			stat := strings.SplitN(l, ":", 2)
-			if m.cfg.HasFieldOut(stat[0]) {
-				stats[stat[0]] = stat[1]
-			}
-		}
-	}
-	m.printStat(stats)
+func (m *monitor) Close() error {
+	m.done <- struct{}{}
+	return nil
 }
 
-func (m *monitor) header() {
+func (m *monitor) Process(host, output string) {
+	m.ch <- hostOutput{host, output}
+}
+
+func (m *monitor) printHeader() {
 	for i, f := range m.cfg.FieldsOut {
 		if i == 0 {
-			fmt.Printf("%s", f)
+			printOut("%s", f)
 		} else {
-			fmt.Printf("%s%s", m.cfg.FieldsSeparator, f)
+			printOut("%s%s", m.cfg.FieldsSeparator, f)
 		}
 	}
-	fmt.Println()
+	printOut("\n")
+}
+
+func (m *monitor) handleStats() {
+	for {
+		select {
+		case hostOutput := <-m.ch:
+			stats := make(map[string]string)
+			stats["host"] = hostOutput.host
+			stats["tstamp"] = time.Now().Format("2006-01-02 15:04:05.999")
+
+			lines := strings.Split(hostOutput.output, "\r\n")
+			for _, l := range lines {
+				if l == "" || l[:1] == "#" {
+					continue
+				} else {
+					stat := strings.SplitN(l, ":", 2)
+					if m.cfg.HasFieldOut(stat[0]) {
+						stats[stat[0]] = stat[1]
+					}
+				}
+			}
+			m.printStat(stats)
+		case <-m.done:
+			return
+		}
+	}
 }
 
 func (m *monitor) printStat(stats map[string]string) {
 	out := ""
 	needPrint := false
+	m.mu.Lock()
 	prev := m.prev[stats["host"]]
+	m.mu.Unlock()
 	for _, f := range m.cfg.FieldsOut {
 		data := stats[f]
 		if f != "host" && f != "tstamp" {
@@ -74,9 +106,11 @@ func (m *monitor) printStat(stats map[string]string) {
 		}
 	}
 	if out != "" && needPrint {
-		fmt.Println(out)
+		printOut("%s\n", out)
 	}
+	m.mu.Lock()
 	m.prev[stats["host"]] = stats
+	m.mu.Unlock()
 }
 
 func (m *monitor) format(field, value string, prev map[string]string) (string, bool) {
@@ -231,4 +265,8 @@ func (m *monitor) format(field, value string, prev map[string]string) (string, b
 		}
 	}
 	return value, needPrint
+}
+
+func printOut(format string, a ...interface{}) (n int, err error) {
+	return fmt.Fprintf(os.Stdout, format, a...)
 }

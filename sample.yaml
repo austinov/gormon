@@ -13,10 +13,15 @@ fields-separator: |
 # the memory values will be printed in human-readable format
 human-readable: true
 
+# adjust the width of columns or not 
+adjust-width: true
+
 # array of fields to print
 # in the case of an empty array will be printed default fields list.
 fields-out:
     #- used_memory
+    #- used_memory_rss
+    #- blocked_clients
 
 # this value is in percent, empty for print any changes
 change-factor:

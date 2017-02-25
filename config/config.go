@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"time"
 
@@ -14,10 +13,40 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	defPath = "."
+	defName = "dev"
+)
+
+var (
+	cfg     Config
+	once    sync.Once
+	cfgPath string
+	cfgName string
+	debug   bool
+)
+
+func init() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage:\n\n")
+		fmt.Fprintf(os.Stderr, "  %s [flags]\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Flags:\n")
+		flag.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\n")
+		fmt.Fprintf(os.Stderr, "Please, make sure you have the configuration file and use flags to setup path to it.\n")
+		fmt.Fprintf(os.Stderr, "\n")
+	}
+	flag.StringVar(&cfgPath, "cfg-dir", defPath, "dir with app's config")
+	flag.StringVar(&cfgName, "cfg-name", defName, "app's config base file name")
+	flag.BoolVar(&debug, "debug", false, "debug mode")
+	flag.Parse()
+}
+
 type Config struct {
 	OutFormat       string                `mapstructure:"out-format"`
 	FieldsSeparator string                `mapstructure:"fields-separator"`
-	HumanReadable   string                `mapstructure:"human-readable"`
+	HumanReadable   bool                  `mapstructure:"human-readable"`
+	AdjustWidth     bool                  `mapstructure:"adjust-width"`
 	Interval        time.Duration         `mapstructure:"interval"`
 	Keydir          string                `mapstructure:"ssh-key-dir"`
 	FieldsOut       []string              `mapstructure:"fields-out"`
@@ -25,7 +54,6 @@ type Config struct {
 	Hosts           map[string]HostConfig `mapstructure:"hosts"`
 	Debug           bool
 	fieldsOutMap    map[string]struct{}
-	forHuman        bool
 }
 
 type HostConfig struct {
@@ -36,18 +64,6 @@ type HostConfig struct {
 }
 
 func (c *Config) init() {
-	var debug bool
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage:\n\n")
-		fmt.Fprintf(os.Stderr, "  %s [flags]\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Flags:\n")
-		flag.PrintDefaults()
-	}
-	flag.BoolVar(&debug, "debug", false, "debug mode")
-	flag.Parse()
-
-	c.Debug = debug
-
 	formats := map[string]struct{}{
 		"csv":   struct{}{},
 		"csv+":  struct{}{},
@@ -59,14 +75,6 @@ func (c *Config) init() {
 	if c.FieldsSeparator == "" {
 		c.FieldsSeparator = "|"
 	}
-	if c.HumanReadable == "" {
-		c.HumanReadable = "true"
-	}
-	forHuman, err := strconv.ParseBool(c.HumanReadable)
-	if err != nil {
-		log.Fatalf("parse human-readable error: %s", err)
-	}
-	c.forHuman = forHuman
 	if c.Interval == time.Duration(0) {
 		c.Interval = 2 * time.Second
 	}
@@ -113,10 +121,7 @@ func (c *Config) init() {
 		c.FieldsOut = append([]string{"host"}, c.FieldsOut...)
 		c.fieldsOutMap["host"] = struct{}{}
 	}
-}
-
-func (c *Config) IsHumanReadable() bool {
-	return c.forHuman
+	c.Debug = debug
 }
 
 func (c *Config) HasFieldOut(name string) bool {
@@ -137,15 +142,17 @@ func (h *HostConfig) ExpandKeypath(keydir string) {
 	}
 }
 
-var (
-	cfg  Config
-	once sync.Once
-)
-
 func GetConfig() Config {
 	once.Do(func() {
+		if cfgPath != "" {
+			viper.AddConfigPath(cfgPath)
+		}
+		viper.AddConfigPath(defPath)
 		viper.AddConfigPath(".")
-		viper.SetConfigName("dev")
+		if cfgName == "" {
+			cfgName = defName
+		}
+		viper.SetConfigName(cfgName)
 
 		err := viper.ReadInConfig()
 		if err != nil {

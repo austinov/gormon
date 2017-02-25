@@ -2,7 +2,7 @@
 
 gormon is an utility for monitoring of remote Redis via SSH.
 
-![gormon](https://github.com/austinov/gormon/blob/assets/gormon/screenshot.gif)
+![gormon](https://github.com/austinov/gormon/blob/assets/screenshot.gif)
 
 In the beginning, as usual, run:
 ```

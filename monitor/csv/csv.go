@@ -36,7 +36,7 @@ func New(cfg c.Config) m.Monitor {
 	m := &monitor{
 		cfg:    cfg,
 		ch:     make(chan hostOutput, len(cfg.Hosts)),
-		done:   make(chan struct{}, 1),
+		done:   make(chan struct{}),
 		prev:   make(map[string]map[string]string),
 		widths: make(map[string]int),
 	}
@@ -46,7 +46,7 @@ func New(cfg c.Config) m.Monitor {
 }
 
 func (m *monitor) Close() error {
-	m.done <- struct{}{}
+	close(m.done)
 	return nil
 }
 
@@ -85,8 +85,10 @@ func (m *monitor) handleStats() {
 				}
 			}
 			m.printStat(stats)
-		case <-m.done:
-			return
+		case _, ok := <-m.done:
+			if !ok {
+				return
+			}
 		}
 	}
 }
@@ -99,12 +101,10 @@ func (m *monitor) printStat(stats map[string]string) {
 	m.mu.Unlock()
 	for _, f := range m.cfg.FieldsOut {
 		data := stats[f]
-		//if f != "host" && f != "tstamp" {
 		np := false
 		if data, np = m.format(f, data, prev); np {
 			needPrint = true
 		}
-		//}
 		if out == "" {
 			out = data
 		} else {

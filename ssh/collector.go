@@ -16,17 +16,17 @@ type Collector interface {
 type collector struct {
 	cfg       c.Config
 	client    Client
-	mon       m.Monitor
+	monitors  []m.Monitor
 	done      chan struct{}
 	connected bool
 }
 
-func NewCollector(cfg c.Config, client Client, mon m.Monitor) Collector {
+func NewCollector(cfg c.Config, client Client, mon ...m.Monitor) Collector {
 	return &collector{
-		cfg:    cfg,
-		client: client,
-		mon:    mon,
-		done:   make(chan struct{}, 1),
+		cfg:      cfg,
+		client:   client,
+		monitors: mon,
+		done:     make(chan struct{}, 1),
 	}
 }
 
@@ -39,23 +39,31 @@ func (c *collector) Start() {
 		case <-ticker:
 			if !c.connected {
 				if err := c.client.Connect(); err != nil {
-					c.mon.Process(c.client.Host(), "error:"+err.Error())
+					c.send(c.client.Host(), "error:"+err.Error())
 					continue
 				}
 				c.connected = true
 			}
 			if out, err := c.client.Run(); err != nil {
-				c.mon.Process(c.client.Host(), "error:"+err.Error())
+				c.send(c.client.Host(), "error:"+err.Error())
 			} else {
-				c.mon.Process(c.client.Host(), out)
+				c.send(c.client.Host(), out)
 			}
-		case <-c.done:
-			c.client.Disconnect()
-			return
+		case _, ok := <-c.done:
+			if !ok {
+				c.client.Disconnect()
+				return
+			}
 		}
 	}
 }
 
+func (c *collector) send(host, output string) {
+	for _, mon := range c.monitors {
+		mon.Process(host, output)
+	}
+}
+
 func (c *collector) Stop() {
-	c.done <- struct{}{}
+	close(c.done)
 }

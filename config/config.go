@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	fu "github.com/austinov/go-recipes/flagutils"
 	"github.com/austinov/gormon/utils"
 	"github.com/spf13/viper"
 )
@@ -23,6 +24,7 @@ var (
 	once    sync.Once
 	cfgPath string
 	cfgName string
+	server  fu.StringFlag
 	debug   bool
 )
 
@@ -38,6 +40,7 @@ func init() {
 	}
 	flag.StringVar(&cfgPath, "cfg-dir", defPath, "dir with app's config")
 	flag.StringVar(&cfgName, "cfg-name", defName, "app's config base file name")
+	flag.Var(&server, "server", "launch as server on address")
 	flag.BoolVar(&debug, "debug", false, "debug mode")
 	flag.Parse()
 }
@@ -52,6 +55,7 @@ type Config struct {
 	FieldsOut       []string              `mapstructure:"fields-out"`
 	ChangeFactor    float32               `mapstructure:"change-factor"`
 	Hosts           map[string]HostConfig `mapstructure:"hosts"`
+	Server          string                `mapstructure:"server"`
 	Debug           bool
 	fieldsOutMap    map[string]struct{}
 }
@@ -120,6 +124,9 @@ func (c *Config) init() {
 	if !host {
 		c.FieldsOut = append([]string{"host"}, c.FieldsOut...)
 		c.fieldsOutMap["host"] = struct{}{}
+	}
+	if server.Exist {
+		c.Server = server.Value
 	}
 	c.Debug = debug
 }

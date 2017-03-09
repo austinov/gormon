@@ -24,73 +24,27 @@ func New(cfg c.Config) m.Monitor {
 		broker: broker,
 	}
 	go func() {
-		http.HandleFunc("/", m.indexHandler)
+		http.Handle("/", http.HandlerFunc(staticHandler("./monitor/web/static/")))
 		http.HandleFunc("/stat/", broker.statHandler)
 		log.Fatal("HTTP server error: ", http.ListenAndServe(cfg.Server, nil))
 	}()
 	return m
 }
 
-var index = `
-<!DOCTYPE html>
-<html>
-
-<head>
-  <meta charset="utf-8">
-  <script>
-    var eventSource;
-
-    function start() {
-
-      if (!window.EventSource) {
-        alert('This browser doesn\'t support EventSource.');
-        return;
-      }
-
-      eventSource = new EventSource('/stat/');
-
-      eventSource.onerror = function(e) {
-        if (this.readyState == EventSource.CONNECTING) {
-          log("Reconnecting...");
-        } else {
-          log("Connection error: " + this.readyState);
-        }
-      };
-
-      eventSource.onmessage = function(e) {
-        console.log(e);
-        log(e.data);
-      };
-    }
-
-    function stop() {
-      eventSource.close();
-    }
-
-    function log(msg) {
-      logElem.innerHTML += msg + "<br>";
-    }
-  </script>
-</head>
-
-<body onload="start();">
-
-  <button onclick="start()">Start</button>
-  <button onclick="stop()">Stop</button>
-
-  <div id="logElem"></div>
-
-</body>
-
-</html>`
-
-func (m *monitor) indexHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, index)
-}
-
 func (m *monitor) Close() error {
 	m.broker.Stop()
 	return nil
+}
+
+func staticHandler(filesPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path[1:]
+		if path == "" {
+			path = "app.htm"
+		}
+		path = fmt.Sprintf("%s/%s", filesPath, path)
+		http.ServeFile(w, r, path)
+	}
 }
 
 func (m *monitor) Process(host, output string) {

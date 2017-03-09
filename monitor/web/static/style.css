@@ -1,0 +1,23 @@
+#graph-mem {
+    width: 90%;
+    height: 40%
+}
+
+#graph-cpu {
+    width: 90%;
+    height: 40%
+}
+
+.dygraph-legend {
+  background-color: rgba(200, 200, 255, 0.75) !important;
+  padding: 4px;
+  border: 1px solid #000;
+  box-shadow: 4px 4px 4px #888;
+  width: auto !important;
+  right: 0 !important;
+  left: auto !important;
+  margin: 5px;
+}
+.dygraph-legend > span {
+	display: block;
+}

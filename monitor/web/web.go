@@ -54,8 +54,16 @@ func (m *monitor) Process(host, output string) {
 
 	lines := strings.Split(output, "\r\n")
 	for _, l := range lines {
-		if l == "" || l[:1] == "#" {
+		if l == "" {
 			continue
+		} else if l[:1] == "#" {
+			if len(l) > 4 && l[:4] == "# PS" {
+				ps := strings.SplitN(l, "\n", 2)[1]
+				cpu := strings.SplitN(ps, " ", 3)[1]
+				stats["used_cpu_perc"] = cpu
+			} else {
+				continue
+			}
 		} else {
 			stat := strings.SplitN(l, ":", 2)
 			if m.cfg.HasFieldOut(stat[0]) {

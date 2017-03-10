@@ -14,6 +14,191 @@
     <div id="graph-mem"></div>
     <div id="graph-cpu"></div>
 
-    <script type="text/javascript" src="app.js"></script>
+    <script>
+      const period = 15*60*1000 // 15 minutes
+      var hosts = [{{- range $, $value := . }} {{ $value.NormAddr }}, {{- end }}];
+      var memData = [[new Date(){{ range $, $ := . }}, 0{{ end }}]];
+      var cpuData = [[new Date(){{ range $, $ := . }}, 0{{ end }}]];
+      var firstDeleted = false;
+      var eventSource;
+      var memGraph = new Dygraph(
+              document.getElementById('graph-mem'),
+              memData,
+              {
+                  title: 'Memory Usage',
+                  titleHeight: 32,
+                  // labels for hosts
+                  labels: [
+                      'Date',
+                      {{- range $, $value := . }}
+                        {{ $value.NormAddr }},
+                      {{- end }}
+                  ],
+                  // Y-axis for stats by time
+                  axes: {
+                      y: {
+                          valueFormatter: function(y) {
+                              return humanBytes(y);
+                          },
+                          axisLabelFormatter: function(y) {
+                              return humanBytes(y);
+                          },
+                          axisLabelWidth: 60
+                      },
+                  },
+                  legend: 'always',
+                  highlightCircleSize: 2,
+                  strokeWidth: 1,
+                  strokeBorderWidth: 1,
+                  highlightSeriesOpts: {
+                      strokeWidth: 3,
+                      strokeBorderWidth: 1,
+                      highlightCircleSize: 5
+                  },
+                  labelsUTC: false,
+                  visibility: [
+                  {{- range $, $ := . }}
+                    true,
+                  {{- end }}
+                  ]
+              }
+      );
+      var cpuGraph = new Dygraph(
+              document.getElementById('graph-cpu'),
+              cpuData,
+              {
+                  title: 'CPU Usage',
+                  titleHeight: 32,
+                  // labels for hosts
+                  labels: [
+                      'Date',
+                      {{- range $, $value := . }}
+                        {{ $value.NormAddr }},
+                      {{- end }}
+                  ],
+                  // Y-axis for stats by time
+                  axes: {
+                      y: {
+                          valueFormatter: function(y) {
+                              return y + '%';
+                          },
+                          axisLabelFormatter: function(y) {
+                              return y + '%';
+                          },
+                          axisLabelWidth: 60
+                      },
+                  },
+                  legend: 'always',
+                  highlightCircleSize: 2,
+                  strokeWidth: 1,
+                  strokeBorderWidth: 1,
+                  highlightSeriesOpts: {
+                      strokeWidth: 3,
+                      strokeBorderWidth: 1,
+                      highlightCircleSize: 5
+                  },
+                  labelsUTC: false,
+                  visibility: [
+                  {{- range $, $ := . }}
+                    true,
+                  {{- end }}
+                  ]
+              }
+      );
+
+      function start() {
+          if (!window.EventSource) {
+              alert('This browser doesn\'t support EventSource.');
+              return;
+          }
+
+          eventSource = new EventSource('/stat/');
+          eventSource.onerror = function(e) {
+              if (this.readyState == EventSource.CONNECTING) {
+                  log("Reconnecting...");
+              } else {
+                  log("Connection error: " + this.readyState);
+              }
+          };
+          eventSource.onmessage = function(e) {
+              stats = JSON.parse(e.data);
+              for (var i=0; i<hosts.length; i++) {
+                  addValues(stats, i);
+              }
+              if (!firstDeleted) {
+                  memData.splice(0, 1);
+                  cpuData.splice(0, 1);
+                  firstDeleted = true;
+              }
+              var firstDate = memData[0][0];
+              var lastDate = memData[memData.length-1][0];
+              for (;(lastDate-firstDate)>period;) {
+                  memData.splice(0, 1);
+                  cpuData.splice(0, 1);
+                  firstDate = memData[0][0];
+                  lastDate = memData[memData.length-1][0];
+              }
+              memGraph.updateOptions( { 'file': memData } );
+              cpuGraph.updateOptions( { 'file': cpuData } );
+          };
+          document.getElementById('start-btn').disabled = true;
+          document.getElementById('stop-btn').disabled = false;
+      }
+
+      function addValues(stats, idx) {
+          var memValues = [new Date(stats.tstamp * 1000)];
+          var cpuValues = [new Date(stats.tstamp * 1000)];
+          for (var ii = 0; ii<hosts.length; ii++) {
+              if (hosts[idx] == stats.host && idx == ii) {
+                  memValues.push(parseValue(stats.used_memory));
+                  cpuValues.push(parseValue(stats.used_cpu_perc, true));
+              } else {
+                  // Memory usage
+                  var value = 0;
+                  if (firstDeleted && memData.length > 0) {
+                      var last = memData[memData.length-1];
+                      value = last[ii+1];
+                  }
+                  memValues.push(parseValue(value));
+                  // CPU usage
+                  value = 0;
+                  if (firstDeleted && cpuData.length > 0) {
+                      var last = cpuData[cpuData.length-1];
+                      value = last[ii+1];
+                  }
+                  cpuValues.push(parseValue(value, true));
+              }
+          }
+          memData.push(memValues);
+          cpuData.push(cpuValues);
+      }
+
+      function parseValue(value, isFloat) {
+          var v =  isFloat ? parseFloat(value) : parseInt(value);
+          return isNaN(v) ? 0 : v;
+      }
+
+      function stop() {
+          eventSource.close();
+          document.getElementById('start-btn').disabled = false;
+          document.getElementById('stop-btn').disabled = true;
+      }
+
+      function log(msg) {
+          console.log(msg);
+      }
+
+      function humanBytes(bytes) {
+          var unit = 1024;
+          if (bytes < unit) {
+              return bytes + 'B';
+          }
+          exp = parseInt(Math.log(bytes)  / Math.log(unit));
+          pre = 'KMGTPE'.charAt(exp-1);
+          return (bytes / Math.pow(unit, exp)).toFixed(2) + ' ' + pre;
+      }
+
+      start();
+    </script>
   </body>
 </html>

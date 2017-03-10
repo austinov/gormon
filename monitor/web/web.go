@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"strings"
@@ -24,7 +25,7 @@ func New(cfg c.Config) m.Monitor {
 		broker: broker,
 	}
 	go func() {
-		http.Handle("/", http.HandlerFunc(staticHandler("./monitor/web/static/")))
+		http.Handle("/", http.HandlerFunc(staticHandler("./monitor/web/static/", cfg)))
 		http.HandleFunc("/stat/", broker.statHandler)
 		log.Fatal("HTTP server error: ", http.ListenAndServe(cfg.Server, nil))
 	}()
@@ -36,14 +37,20 @@ func (m *monitor) Close() error {
 	return nil
 }
 
-func staticHandler(filesPath string) http.HandlerFunc {
+func staticHandler(filesPath string, cfg c.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path[1:]
-		if path == "" {
-			path = "app.htm"
+		if path == "" || path == "app.htm" {
+			path = fmt.Sprintf("%s/%s", filesPath, "app.htm")
+			t, err := template.ParseFiles(path)
+			if err != nil {
+				log.Fatal(err)
+			}
+			t.Execute(w, cfg.Hosts)
+		} else {
+			path = fmt.Sprintf("%s/%s", filesPath, path)
+			http.ServeFile(w, r, path)
 		}
-		path = fmt.Sprintf("%s/%s", filesPath, path)
-		http.ServeFile(w, r, path)
 	}
 }
 

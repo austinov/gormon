@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -65,6 +66,10 @@ type HostConfig struct {
 	Addr    string `mapstructure:"addr"`
 	Keypath string `mapstructure:"keypath"`
 	Command string `mapstructure:"cmd"`
+}
+
+func (h HostConfig) NormAddr() string {
+	return strings.Split(h.Addr, ":")[0]
 }
 
 func (c *Config) init() {

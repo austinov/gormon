@@ -61,7 +61,7 @@ func (c *sshClient) Run() (string, error) {
 
 	var buf bytes.Buffer
 	session.Stdout = &buf
-	err = session.Run(c.config.Command + " && echo '# PS' && ps aux | awk '{print $2, $3, $11}' | grep redis-server")
+	err = session.Run(c.config.Command + " && echo '# PS' && top -b -n1 | grep redis-server | head -1 | awk '{print $9}'")
 	if err != nil {
 		return "", err
 	}

@@ -6,16 +6,18 @@
     <title>Redis Monitors</title>
   </head>
   <body>
-    <button id="start-btn" onclick="start()">Start</button>
-    <button id="stop-btn" onclick="stop()">Stop</button>
-    <br/>
-    <br/>
+    <div>
+        <label for="period">Observation period (minutes)</label>
+        <input id="period" type="text" size="10" value="60">
+        <button id="start-btn" onclick="start()">Start</button>
+        <button id="stop-btn" onclick="stop()">Stop</button>
+    </div>
 
     <div id="graph-mem"></div>
     <div id="graph-cpu"></div>
 
     <script>
-      const period = 15*60*1000 // 15 minutes
+      const defaultPeriod = 60 // 60 minutes
       var hosts = [{{- range $, $value := . }} {{ $value.NormAddr }}, {{- end }}];
       var memData = [[new Date(){{ range $, $ := . }}, 0{{ end }}]];
       var cpuData = [[new Date(){{ range $, $ := . }}, 0{{ end }}]];
@@ -130,6 +132,12 @@
                   cpuData.splice(0, 1);
                   firstDeleted = true;
               }
+              var period = parseValue(document.getElementById('period').value)*60*1000;
+              if (period == 0) {
+                  period = defaultPeriod * 60 * 1000;
+                  document.getElementById('period').value = defaultPeriod;
+              }
+
               var firstDate = memData[0][0];
               var lastDate = memData[memData.length-1][0];
               for (;(lastDate-firstDate)>period;) {

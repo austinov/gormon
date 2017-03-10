@@ -65,9 +65,8 @@ func (m *monitor) Process(host, output string) {
 			continue
 		} else if l[:1] == "#" {
 			if len(l) > 4 && l[:4] == "# PS" {
-				ps := strings.SplitN(l, "\n", 2)[1]
-				cpu := strings.SplitN(ps, " ", 3)[1]
-				stats["used_cpu_perc"] = cpu
+				cpu := strings.SplitN(l, "\n", 3)[1]
+				stats["used_cpu_perc"] = strings.Replace(cpu, ",", ".", -1)
 			} else {
 				continue
 			}

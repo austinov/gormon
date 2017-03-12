@@ -1,8 +1,6 @@
 # gormon
 
-gormon is an utility for monitoring of remote Redis via SSH.
-
-![gormon](https://github.com/austinov/gormon/blob/assets/screenshot.gif)
+gormon is an utility for monitoring remote Redis instances via SSH.
 
 In the beginning, as usual, run:
 ```
@@ -45,3 +43,14 @@ To run the utility:
 ```
     $ ./gormon
 ```
+
+##### Screenshot
+![gormon](https://github.com/austinov/gormon/blob/assets/screenshot_terminal.gif)
+
+
+To run the utility as a web-server and update stats via [Server-sent events](http://www.w3.org/TR/eventsource/) use:
+```
+    $ ./gormon -server=localhost:3000
+```
+##### Screenshot
+![gormon](https://github.com/austinov/gormon/blob/assets/screenshot_web.png)
